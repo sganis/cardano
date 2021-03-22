@@ -3,17 +3,18 @@
 
 DIR=$(dirname $(readlink -f $0))
 NETOWORK="--testnet-magic 1097911063"
-cd $DIR/relay
 
 cardano-node run \
  --topology testnet-topology.json \
  --database-path db \
  --socket-path db/node.socket \
- --host-addr 127.0.0.1 \
+ --host-addr 192.168.100.203 \
  --port 3001 \
  --config testnet-config.json
 
 exit
+
+
 
 # from different terminal, query activity
 export CARDANO_NODE_SOCKET_PATH=$DIR/relay/db/node.socket

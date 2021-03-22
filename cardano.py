@@ -42,11 +42,14 @@ def calculate_min_fee(tx_out_count, witness_count):
 	o,e = run(cmd)
 	return int(o.split()[0])
 
-def get_ttl():
+def get_tip_slot_number():
 	cmd  = 'cardano-cli query tip --testnet-magic 1097911063'
 	o, e = run(cmd)
 	js = json.loads(o)
-	return int(js['slotNo']) + 200
+	return int(js['slotNo'])
+
+def get_ttl():
+	return get_tip_slot_number() + 200
 
 def get_deposit():
 	js = json.loads(open('protocol.json').read())
@@ -139,7 +142,38 @@ def register(stake_addr_file, stake_skey_file,
 
 	print(get_tx_hash(payment_addr))
 
-	
+
+
+def generate_pool_keys():
+	cmd = '''cardano-cli node key-gen 
+		--cold-verification-key-file cold.vkey 
+		--cold-signing-key-file cold.skey 
+		--operational-certificate-issue-counter-file cold.counter'''
+	run(cmd)
+	cmd = '''cardano-cli node key-gen-VRF 
+		--verification-key-file vrf.vkey 
+		--signing-key-file vrf.skey'''
+	run(cmd)
+	cmd = '''cardano-cli node key-gen-KES 
+		--verification-key-file kes.vkey 
+		--signing-key-file kes.skey'''
+	run(cmd)
+	js = json.loads(open('../relay/testnet-shelley-genesis.json').read())
+	slots_per_kes = js['slotsPerKESPeriod']
+	print(slots_per_kes)
+	slot_no = get_tip_slot_number()
+	print(slot_no)
+	kes_period = int(slot_no / slots_per_kes)
+	print(kes_period)
+
+	cmd = 'cardano-cli node issue-op-cert '
+	cmd += '--kes-verification-key-file kes.vkey '
+	cmd += '--cold-signing-key-file cold.skey '
+	cmd += '--operational-certificate-issue-counter cold.counter '
+	cmd += f'--kes-period {kes_period} '
+	cmd += '--out-file node.cert'
+	run(cmd)
+
 if __name__ == '__main__':
 	
 	# assert len(sys.argv) > 3  # usage: prog <from> <to> <ada_amount>
@@ -150,13 +184,15 @@ if __name__ == '__main__':
 	#send(from_addr, to_addr, ada, from_skey)
 
 	# register stake address
-	payment_addr_file = 'payment.addr'
-	payment_skey_file = payment_addr_file.split('.')[0] + '.skey'
+	# payment_addr_file = 'payment.addr'
+	# payment_skey_file = payment_addr_file.split('.')[0] + '.skey'
 		
-	stake_addr_file = 'stake.addr'
-	stake_skey_file = stake_addr_file.split('.')[0] + '.skey'
-	stake_vkey_file = stake_addr_file.split('.')[0] + '.vkey'
+	# stake_addr_file = 'stake.addr'
+	# stake_skey_file = stake_addr_file.split('.')[0] + '.skey'
+	# stake_vkey_file = stake_addr_file.split('.')[0] + '.vkey'
 
-	register(stake_addr_file, stake_skey_file, stake_vkey_file,
-		 payment_addr_file, payment_skey_file)
+	# register(stake_addr_file, stake_skey_file, stake_vkey_file,
+	# 	 payment_addr_file, payment_skey_file)
 
+	# generate stake pool keys
+	generate_pool_keys()
