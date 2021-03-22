@@ -31,9 +31,9 @@ cardano-cli stake-address key-gen \
 
 ## generate payment address
 cardano-cli address build \
-	--payment-verification-key-file payment.vkey \
+	--payment-verification-key-file payment2.vkey \
 	--stake-verification-key-file stake.vkey \
-	--out-file payment.addr \
+	--out-file payment2.addr \
 	--testnet-magic 1097911063
 
 ## grenerate a stake address
