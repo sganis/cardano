@@ -3,21 +3,21 @@
 
 DIR=$(dirname $(readlink -f $0))
 NETOWORK="--testnet-magic 1097911063"
-cd $DIR/relay
+cd $HOME/relay
 
 cardano-node run \
  --topology testnet-topology.json \
- --database-path db \
- --socket-path db/node.socket \
- --host-addr 127.0.0.1 \
+ --database-path $HOME/relay/db \
+ --socket-path $HOME/relay/db/node.socket \
+ --host-addr 0.0.0.0 \
  --port 3001 \
  --config testnet-config.json
 
 exit
 
 # from different terminal, query activity
-export CARDANO_NODE_SOCKET_PATH=$DIR/relay/db/node.socket
-cardano-cli query tip "$NETWORK"
+export CARDANO_NODE_SOCKET_PATH=$HOME/relay/db/node.socket
+cardano-cli query tip --testnet-magic 1097911063
 
 ## generate payment key pair
 cardano-cli address key-gen \
@@ -34,7 +34,7 @@ cardano-cli address build \
 	--payment-verification-key-file payment.vkey \
 	--stake-verification-key-file stake.vkey -\
 	-out-file payment.addr \
-	"$NETWORK"
+	--testnet-magic 1097911063
 
 ## grenerate a stake address
 cardano-cli stake-address build \
@@ -50,10 +50,10 @@ SRC_BALANCE=20000000
 DST_AMOUNT=10000000
 
 # get protocol parameters
-cardano-cli query protocol-parameters --out-file protocol.json "$NETWORK" 
+cardano-cli query protocol-parameters --out-file protocol.json --testnet-magic 1097911063 
 
 # get hash and index for --tx-in <TxHash>#<TxTx>
-cardano-cli query utxo --address $(cat payment.addr) "$NETWORK"
+cardano-cli query utxo --address $(cat payment.addr) --testnet-magic 1097911063
 
 # draft tx
 cardano-cli transaction build-raw \
@@ -71,13 +71,13 @@ FEE=$(cardano-cli transaction calculate-min-fee \
 	--tx-out-count 2 \
 	--witness-count 1 \
 	--byron-witness-count 0 \
-	"$NETWORK" \
+	--testnet-magic 1097911063 \
 	--protocol-params-file protocol.json)
 # calculate change
 CHANGE=$(expr $SRC_BALANCE - $DST_AMOUNT - $FEE)
 
 # set TTL, get slotNo from this
-cardano-cli query tip "$NETWORK"
+cardano-cli query tip --testnet-magic 1097911063
 #TTL=slotNo+200
 
 # build tx
@@ -93,19 +93,19 @@ cardano-cli transaction build-raw \
 cardano-cli transaction sign \
 	--tx-body-file tx.raw \
 	--signing-key-file payment.skey \
-	"$NETWORK" \
+	--testnet-magic 1097911063 \
 	--out-file tx.signed
 
 # submit tx
 cardano-cli transaction submit \
 	--tx-file tx.signed \
-	"$NETWORK"
+	--testnet-magic 1097911063
 
 # check balances
 cardano-cli query utxo \
     --address $(cat payment.addr) \
-    "$NETWORK"
+    --testnet-magic 1097911063
 cardano-cli query utxo \
     --address $(cat payment2.addr) \
-    "$NETWORK"
+    --testnet-magic 1097911063
 

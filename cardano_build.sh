@@ -3,38 +3,33 @@
 # SAG, 03/19/2021
 
 DIR=$(dirname $(readlink -f $0))
-BIN="$HOME/relay/bin"
-DB="$HOME/relay/db"
+CABAL=3.2.0.0
+GHC=8.10.2
+VERSION=1.25.1
 
-VERSION=1.26.0
-linuxurl=https://hydra.iohk.io/build/5856093/download/1/cardano-node-$VERSION-linux.tar.gz
-configurl="https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1"
+# ubuntu dev tools
+sudo apt-get install build-essential pkg-config libffi-dev libgmp-dev -y
+sudo apt-get install libssl-dev libtinfo-dev libsystemd-dev zlib1g-dev -y
+sudo apt-get install make g++ tmux git jq wget libncursesw5 libtool autoconf -y
 
-mkdir -p $BIN
-mkdir -p $DB
-cd $BIN
-wget $linuxurl
-tar xvf cardano-node-$VERSION-linux.tar.gz 
-rm cardano-node-$VERSION-linux.tar.gz 
-echo export PATH=$BIN:$PATH >> ~/.bashrc
-echo export CARDANO_NODE_SOCKET_PATH=$HOME/relay/db/node.socket  >> ~/.bashrc
+# get haskell
+wget https://downloads.haskell.org/~cabal/cabal-install-$CABAL/cabal-install-$CABAL-x86_64-unknown-linux.tar.xz
+tar -xf cabal-install-$CABAL-x86_64-unknown-linux.tar.xz
+mkdir -p ~/.local/bin
+mv cabal ~/.local/bin/
+echo export PATH="$HOME/.local/bin:$PATH" >> ~/.bashrc
 source ~/.bashrc
+cabal update
+cabal --version
 
-
-# url="https://hydra.iohk.io/build/5102327/download/1"
-wget $configurl/testnet-config.json
-wget $configurl/testnet-shelley-genesis.json
-wget $configurl/testnet-byron-genesis.json
-wget $configurl/testnet-topology.json
-wget $configurl/mainnet-config.json
-wget $configurl/mainnet-shelley-genesis.json
-wget $configurl/mainnet-byron-genesis.json
-wget $configurl/mainnet-topology.json
-
-cardano-node --version
-
-exit 
-
+# build GHC
+wget https://downloads.haskell.org/~ghc/$GHC/ghc-$GHC-x86_64-deb9-linux.tar.xz
+tar -xf ghc-$GHC-x86_64-deb9-linux.tar.xz
+cd ghc-$GHC
+./configure
+sudo make install
+ghc --version
+cd $DIR
 
 # build libsodium
 export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
@@ -70,7 +65,7 @@ cd $DIR
 # get config files
 mkdir relay
 cd relay
-url="https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1"
+url="https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/"
 # url="https://hydra.iohk.io/build/5102327/download/1"
 wget $url/testnet-config.json
 wget $url/testnet-shelley-genesis.json
