@@ -51,9 +51,13 @@ def get_tip_slot_number():
 def get_ttl():
 	return get_tip_slot_number() + 200
 
-def get_deposit():
+def get_key_deposit():
 	js = json.loads(open('protocol.json').read())
 	return int(js['keyDeposit'])
+
+def get_pool_deposit():
+	js = json.loads(open('protocol.json').read())
+	return int(js['poolDeposit'])
 
 
 def send(from_addr, to_addr, ada, from_skey):
@@ -92,8 +96,7 @@ def send(from_addr, to_addr, ada, from_skey):
 	print(get_tx_hash(to_addr))
 
 
-def register(stake_addr_file, stake_skey_file, 
-		stake_vkey_file, payment_addr_file, payment_skey_file):
+def register(stake_addr_file, stake_skey_file, stake_vkey_file, payment_addr_file, payment_skey_file):
 	stake_addr = open(stake_addr_file).read()
 	stake_skey = open(stake_addr_file).read()
 	payment_addr = open(payment_addr_file).read()
@@ -143,7 +146,6 @@ def register(stake_addr_file, stake_skey_file,
 	print(get_tx_hash(payment_addr))
 
 
-
 def generate_pool_keys():
 	cmd = '''cardano-cli node key-gen 
 		--cold-verification-key-file cold.vkey 
@@ -174,6 +176,88 @@ def generate_pool_keys():
 	cmd += '--out-file node.cert'
 	run(cmd)
 
+
+def register_pool():
+
+	payment_addr = open('payment.addr').read()
+	payment_skey = open('payment.skey').read()
+
+	cmd ='cardano-cli stake-pool metadata-hash --pool-metadata-file cardano/poolMetadata.json'
+	o,e = run(cmd)
+	metadata_hash = o.strip()
+	pledge = 500 * 1_000_000
+	cost = 340 * 1_000_000
+	margin = 0.03
+	metadata_url = 'https://git.io/JmApG'
+	relay_dns = "adapool.chaintrust.com"
+
+	cmd = 'cardano-cli stake-pool registration-certificate '
+	cmd += '--cold-verification-key-file cold.vkey '
+	cmd += '--vrf-verification-key-file vrf.vkey '
+	cmd += f'--pool-pledge {pledge} '
+	cmd += f'--pool-cost {cost} '
+	cmd += f'--pool-margin {margin} '
+	cmd += '--pool-reward-account-verification-key-file stake.vkey '
+	cmd += '--pool-owner-stake-verification-key-file stake.vkey '
+	cmd += '--testnet-magic 1097911063 '
+	cmd += f'--single-host-pool-relay {relay_dns} '
+	cmd += '--pool-relay-port 3001 '
+	cmd += f'--metadata-url {metadata_url} '
+	cmd += f'--metadata-hash {metadata_hash} '
+	cmd += '--out-file pool-registration.cert'
+	o,e = run(cmd)
+
+	cmd = '''cardano-cli stake-address delegation-certificate 
+		--stake-verification-key-file stake.vkey 
+		--cold-verification-key-file cold.vkey 
+		--out-file delegation.cert'''
+	run(cmd)
+
+
+	get_protocol()
+	txhash, txtx, balance = get_tx_hash(payment_addr)
+
+	cmd = 'cardano-cli transaction build-raw '
+	cmd += f'--tx-in {txhash}#{txtx} '
+	cmd += f'--tx-out {payment_addr}+0 '
+	cmd += '--invalid-hereafter 0 --fee 0 --out-file tx.draft '
+	cmd += '--certificate-file pool-registration.cert '
+	cmd += '--certificate-file delegation.cert'
+	run(cmd)
+
+	fee = calculate_min_fee(1, 3)
+	print(f'fee: {fee}')
+	deposit = get_pool_deposit()
+	print(f'deposit: {deposit}')
+
+	change = balance - fee - deposit
+
+	ttl = get_ttl()
+
+	cmd = 'cardano-cli transaction build-raw '
+	cmd += f'--tx-in {txhash}#{txtx} '
+	cmd += f'--tx-out {payment_addr}+{change} '
+	cmd += f'--invalid-hereafter {ttl} '
+	cmd += f'--fee {fee} --out-file tx.raw '
+	cmd += '--certificate-file pool-registration.cert '
+	cmd += '--certificate-file delegation.cert'
+	o,e = run(cmd)
+
+	cmd = 'cardano-cli transaction sign --tx-body-file tx.raw '
+	cmd += '--signing-key-file payment.skey '
+	cmd += '--signing-key-file stake.skey '
+	cmd += '--signing-key-file cold.skey '
+	cmd += '--out-file tx.signed --testnet-magic 1097911063'
+	o,e = run(cmd)
+
+	o,e = run('cardano-cli transaction submit --tx-file tx.signed --testnet-magic 1097911063')
+	print(o)
+	if e:
+		print(f'error: {e}')
+	# verify
+	# poolId=`cardano-cli stake-pool id --cold-verification-key-file cold.vkey --output-format "hex"`
+	# cardano-cli query ledger-state --mary-era --testnet-magic 1097911063 | grep publicKey | grep <poolId>
+	
 if __name__ == '__main__':
 	
 	# assert len(sys.argv) > 3  # usage: prog <from> <to> <ada_amount>
@@ -195,4 +279,7 @@ if __name__ == '__main__':
 	# 	 payment_addr_file, payment_skey_file)
 
 	# generate stake pool keys
-	generate_pool_keys()
+	#generate_pool_keys()
+
+	# register stake pool
+	register_pool()

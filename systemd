@@ -1,0 +1,11 @@
+[Unit]
+Description=Cardano node
+
+[Service]
+User=san
+WorkingDirectory=/home/san/ada
+ExecStart=/home/san/ada/cardano/start_relay.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

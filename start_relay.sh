@@ -12,4 +12,3 @@ cardano-node run \
  --port 3001 \
  --config testnet-config.json
 
-exit
